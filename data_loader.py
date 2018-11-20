@@ -1,17 +1,18 @@
 import math
 import os
+import pickle
 import random
 import sys
-
-import torch
-import torch.utils.data
 
 import numpy as np
 import scipy.io
 import scipy.stats
 import skimage.morphology
+import torch
+import torch.utils.data
 from scipy import misc
-from skimage.morphology import square, dilation, erosion
+from skimage.morphology import dilation, erosion, square
+
 
 def _get_train_all_p_pairs(out_dir, split_name='train'):
     assert split_name in {'train', 'train_flip', 'test'}
@@ -19,14 +20,14 @@ def _get_train_all_p_pairs(out_dir, split_name='train'):
         p_pairs_path = os.path.join(out_dir, 'p_pairs_train_flip.p')
     else:
         p_pairs_path = os.path.join(out_dir, 'p_pairs_' + split_name.split('_')[0] + '.p')
-        
+
     if os.path.exists(p_pairs_path):
         with open(p_pairs_path, 'rb') as f:
             p_pairs = pickle.load(f)
-            
+
     print('_get_train_all_pn_pairs finish ...')
     print('p_pairs length:%d' % len(p_pairs))
-    
+
     return p_pairs
 
 
@@ -55,7 +56,7 @@ def _getSparsePose(peaks, height, width, channel, radius=4, var=4, mode='Solid')
             c = p[0][0]
             ind = _getSparseKeypoint(r, c, k, height, width, radius, var, mode)
             indices.extend(ind)
-            
+
     shape = [height, width, channel]
     return indices, shape
 
@@ -96,7 +97,7 @@ def _getPoseMask(peaks, height, width, radius=4, var=4, mode='Solid'):
             indices.extend(ind)
             ind = _getSparseKeypoint(r1, c1, 0, height, width, radius, var, mode)
             indices.extend(ind)
-            
+
             distance = np.sqrt((r0-r1)**2 + (c0-c1)**2)
             sampleN = int(distance/radius)
             if sampleN > 1:
@@ -105,9 +106,9 @@ def _getPoseMask(peaks, height, width, radius=4, var=4, mode='Solid'):
                     c = c0 + (c1-c0)*i/sampleN
                     ind = _getSparseKeypoint(r, c, 0, height, width, radius, var, mode)
                     indices.extend(ind)
-                    
+
     shape = [height, width, 1]
-    
+
     dense = np.squeeze(_sparse2dense(indices, shape))
     dense = dilation(dense, square(5))
     dense = erosion(dense, square(5))
@@ -120,7 +121,7 @@ def _get_valid_peaks(all_peaks, subsets):
         valid_idx = -1
         valid_score = -1
         for i, subset in enumerate(subsets):
-            score = subset[-2]   
+            score = subset[-2]
             if score > valid_score:
                 valid_idx = i
                 valid_score = score
@@ -167,17 +168,17 @@ def _format_data(folder_path, pairs, i, all_peaks_dic, subsets_dic):
     image_0 = (image_raw_0 - 127.5) / 127.5
     image_1 = (image_raw_1 - 127.5) / 127.5
     pose_1 = pose_1 * 2 - 1
-    
+
     image_0 = torch.from_numpy(np.transpose(image_0, (2, 0, 1)))
     image_1 = torch.from_numpy(np.transpose(image_1, (2, 0, 1)))
     mask_1 = torch.from_numpy(np.transpose(mask_1, (2, 0, 1)))
     pose_1 = torch.from_numpy(np.transpose(pose_1, (2, 0, 1)))
-    
+
     return [image_0, image_1, pose_1, mask_1]
 
 
 class PoseDataset(torch.utils.data.Dataset):
-    """Pose dataset."""    
+    """Pose dataset."""
     def __init__(self, out_dir, folder_path, folder_path_flip, pose_peak_path, pose_sub_path, pose_peak_path_flip, pose_sub_path_flip):
         self.folder_path = folder_path
         self.folder_path_flip = folder_path_flip
@@ -189,17 +190,17 @@ class PoseDataset(torch.utils.data.Dataset):
         self.subsets_dic = None
         self.all_peaks_dic_flip = None
         self.subsets_dic_flip = None
-        
+
         with open(pose_peak_path, 'rb') as f:
             self.all_peaks_dic = pickle.load(f, encoding='latin1')
         with open(pose_sub_path, 'rb') as f:
             self.subsets_dic = pickle.load(f, encoding='latin1')
-        
+
         with open(pose_peak_path_flip, 'rb') as f:
             self.all_peaks_dic_flip = pickle.load(f, encoding='latin1')
         with open(pose_sub_path_flip, 'rb') as f:
             self.subsets_dic_flip = pickle.load(f, encoding='latin1')
-        
+
     def __len__(self):
         return self.length
 
@@ -207,15 +208,15 @@ class PoseDataset(torch.utils.data.Dataset):
         while True:
             USE_FLIP = index >= len(self.p_pairs)
             if USE_FLIP:
-                example = _format_data(self.folder_path_flip, p_pairs_flip, index - len(self.p_pairs), self.all_peaks_dic_flip, self.subsets_dic_flip)
+                example = _format_data(self.folder_path_flip, self.p_pairs_flip, index - len(self.p_pairs), self.all_peaks_dic_flip, self.subsets_dic_flip)
                 if example:
                     return example
-                index = (index + 1) % length
+                index = (index + 1) % self.length
             else:
-                example = _format_data(self.folder_path, p_pairs, index, self.all_peaks_dic, self.subsets_dic)
+                example = _format_data(self.folder_path, self.p_pairs, index, self.all_peaks_dic, self.subsets_dic)
                 if example:
                     return example
-                index = (index + 1) % length
+                index = (index + 1) % self.length
 
 
     def get_loader(dataset_dir, batch_size):

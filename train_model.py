@@ -9,21 +9,22 @@ import data_loader
 from config import get_config
 from models import *
 
-def train(generator_one, generator_two, discriminator, L1_criterion, BCE_criterion, gen_train_op1, gen_train_op2, dis_train_op1, pose_loader, config):
-	if config.pretrained_path is not None:
-		generator_one.load_state_dict(torch.load(os.path.join(config.pretrained_path, 'train_generator_one')))
-		generator_two.load_state_dict(torch.load(os.path.join(config.pretrained_path, 'train_generator_two')))
-		discriminator.load_state_dict(torch.load(os.path.join(config.pretrained_path, 'train_discriminator')))
+def train(generator_one, generator_two, discriminator, L1_criterion, BCE_criterion,
+         gen_train_op1, gen_train_op2, dis_train_op1, pose_loader, config):
+    if config.pretrained_path is not None:
+        generator_one.load_state_dict(torch.load(os.path.join(config.pretrained_path, 'train_generator_one')))
+        generator_two.load_state_dict(torch.load(os.path.join(config.pretrained_path, 'train_generator_two')))
+        discriminator.load_state_dict(torch.load(os.path.join(config.pretrained_path, 'train_discriminator')))
 
     for epoch in range(config.epochs):
         for step, example in enumerate(pose_loader):
             [x, x_target, pose_target, mask_target] = example
             if config.use_gpu:
-	            x = Variable(x.cuda())
-	            x_target = Variable(x_target.cuda())
-	            pose_target = Variable(pose_target.cuda())
-	            mask_target = Variable(mask_target.cuda())
-            
+                x = Variable(x.cuda())
+                x_target = Variable(x_target.cuda())
+                pose_target = Variable(pose_target.cuda())
+                mask_target = Variable(mask_target.cuda())
+
             G1 = generator_one(torch.cat([x, pose_target], dim=1))
             if step < 22000:
                 PoseMaskLoss1 = L1_criterion(G1 * mask_target, x_target * mask_target)
@@ -73,30 +74,30 @@ def train(generator_one, generator_two, discriminator, L1_criterion, BCE_criteri
 
 
 def main(config):
-	if config.gpu > -1:
-		os.environ["CUDA_VISIBLE_DEVICES"] = str(config.gpu)
+    if config.gpu > -1:
+        os.environ["CUDA_VISIBLE_DEVICES"] = str(config.gpu)
 
-	generator_one = GeneratorCNN_Pose_UAEAfterResidual_256(21, config.z_num, config.repeat_num, config.hidden_num)
-	generator_two = UAE_noFC_AfterNoise(6, config.repeat_num - 2, config.hidden_num)
-	discriminator = DCGANDiscriminator_256(use_gpu=config.use_gpu)
+    generator_one = GeneratorCNN_Pose_UAEAfterResidual_256(21, config.z_num, config.repeat_num, config.hidden_num)
+    generator_two = UAE_noFC_AfterNoise(6, config.repeat_num - 2, config.hidden_num)
+    discriminator = DCGANDiscriminator_256(use_gpu=config.use_gpu)
 
-	if config.use_gpu:
-		generator_one.cuda()
-		generator_two.cuda()
-		discriminator.cuda()
+    if config.use_gpu:
+        generator_one.cuda()
+        generator_two.cuda()
+        discriminator.cuda()
 
-	L1_criterion = nn.L1Loss()
-	BCE_criterion = nn.BCELoss()
+    L1_criterion = nn.L1Loss()
+    BCE_criterion = nn.BCELoss()
 
-	gen_train_op1 = optim.Adam(generator_one.parameters(), lr=config.g_lr, betas=(config.beta1, config.beta2))
-	gen_train_op2 = optim.Adam(generator_two.parameters(), lr=config.g_lr, betas=(config.beta1, config.beta2))
-	dis_train_op1 = optim.Adam(discriminator.parameters(), lr=config.d_lr, betas=(config.beta1, config.beta2))
+    gen_train_op1 = optim.Adam(generator_one.parameters(), lr=config.g_lr, betas=(config.beta1, config.beta2))
+    gen_train_op2 = optim.Adam(generator_two.parameters(), lr=config.g_lr, betas=(config.beta1, config.beta2))
+    dis_train_op1 = optim.Adam(discriminator.parameters(), lr=config.d_lr, betas=(config.beta1, config.beta2))
 
-	pose_loader = data_loader.get_loader(os.path.join(config.data_dir, 'DF_img_pose'), config.batch_size) 
-	train(generator_one, generator_two, discriminator, L1_criterion, BCE_criterion, gen_train_op1, gen_train_op2, dis_train_op1, 
-		pose_loader, config)
+    pose_loader = data_loader.get_loader(os.path.join(config.data_dir, 'DF_img_pose'), config.batch_size)
+    train(generator_one, generator_two, discriminator, L1_criterion, BCE_criterion, gen_train_op1, gen_train_op2, dis_train_op1,
+        pose_loader, config)
 
 
 if __name__ == "__main__":
     config, unparsed = get_config()
-	main(config)
+    main(config)

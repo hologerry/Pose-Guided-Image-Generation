@@ -1,14 +1,12 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import math
 import os
+import pickle
 import random
 import sys
 
 import numpy as np
-import pickle
 
 _RANDOM_SEED = 0
 random.seed(_RANDOM_SEED)
@@ -31,7 +29,7 @@ def _get_image_file_list(dataset_dir, split_name):
         filelist = sorted(filelist)
     elif split_name == 'test':
         filelist = sorted(os.listdir(folder_path))
-        
+
     valid_filelist = []
     for i in range(0, len(filelist)):
         if filelist[i].endswith('.jpg') or filelist[i].endswith('.png'):
@@ -55,7 +53,7 @@ def _get_train_all_pn_pairs(dataset_dir, out_dir, split_name='train', augment_ra
     else:
         p_pairs_path = os.path.join(out_dir, 'p_pairs_' + split_name.split('_')[0] + '.p')
         n_pairs_path = os.path.join(out_dir, 'n_pairs_' + split_name.split('_')[0] + '.p')
-    
+
     if os.path.exists(p_pairs_path):
         with open(p_pairs_path, 'r') as f:
             p_pairs = pickle.load(f)
@@ -66,7 +64,7 @@ def _get_train_all_pn_pairs(dataset_dir, out_dir, split_name='train', augment_ra
         filenames = []
         p_pairs = []
         n_pairs = []
-        
+
         for i in range(0, len(filelist)):
             names = filelist[i].split('_')
             id_i = names[0]
@@ -84,7 +82,7 @@ def _get_train_all_pn_pairs(dataset_dir, out_dir, split_name='train', augment_ra
                         print(len(n_pairs))
 
         print('repeat positive pairs augment_ratio times and cut down negative pairs to balance data ......')
-        p_pairs = p_pairs * augment_ratio  
+        p_pairs = p_pairs * augment_ratio
         random.shuffle(n_pairs)
         n_pairs = n_pairs[:len(p_pairs)]
         print('p_pairs length:%d' % len(p_pairs))
@@ -112,8 +110,8 @@ def _get_train_all_pn_pairs(dataset_dir, out_dir, split_name='train', augment_ra
     return p_pairs, n_pairs
 
 
-def run_one_pair_rec(dataset_dir, out_dir, split_name): 
-    
+def run_one_pair_rec(dataset_dir, out_dir, split_name):
+
     if split_name.lower()=='train':
         #================ Prepare training set ================
         pose_peak_path = os.path.join(dataset_dir, 'PoseFiltered', 'all_peaks_dic_DeepFashion.p')
@@ -124,8 +122,8 @@ def run_one_pair_rec(dataset_dir, out_dir, split_name):
         p_pairs, n_pairs = _get_train_all_pn_pairs(dataset_dir, out_dir,
                                                     split_name=split_name,
                                                     augment_ratio=1)
-        p_labels = [1]*len(p_pairs) 
-        n_labels = [0]*len(n_pairs) 
+        p_labels = [1]*len(p_pairs)
+        n_labels = [0]*len(n_pairs)
         pairs = p_pairs
         labels = p_labels
         combined = list(zip(pairs, labels))
@@ -172,7 +170,7 @@ def run_one_pair_rec(dataset_dir, out_dir, split_name):
 
 if __name__ == '__main__':
     dataset_dir = sys.argv[1]
-    split_name = sys.argv[2]  
+    split_name = sys.argv[2]
     out_dir = os.path.join(dataset_dir, 'DF_' + split_name.replace('_flip', '') + '_data')
     if not os.path.exists(out_dir):
         os.mkdir(out_dir)
