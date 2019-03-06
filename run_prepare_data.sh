@@ -1,4 +1,3 @@
-source ~/.bashrc
 
 if [ ! -d ./data/DF_img_pose ]; then
 	if [ ! -d ./data]; then
